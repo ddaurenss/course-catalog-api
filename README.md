@@ -59,6 +59,10 @@ Run the acceptance checks after activating `.venv`:
 python -m unittest -v
 ```
 
+Verified locally on Python 3.13.16 with FastAPI 0.143.0: all 7 test methods passed. FastAPI is pinned to the verified version in `requirements.txt`.
+
+The actual server was also started with `fastapi dev main.py`. HTTP checks confirmed 200 responses from `/`, `/docs`, `/redoc`, and `/openapi.json`; page 2 returned `web-security` and `backend-fastapi`; `/courses/nope` returned the expected 404 JSON. Swagger's interactive controls still need to be exercised manually in your browser before submission.
+
 The tests also verify Pydantic defaults (`is_elective=False`, `likes=0`), conversion of `credits="5"` to 5, rejection of `credits="five"`, rejection of invalid query types, and preservation of the original data order.
 
 For the manual Swagger verification required by the lab, open `/docs`, expand `GET /courses`, choose **Try it out**, enter the parameters from the table, and select **Execute**. Inspect the request URL, response body, and status code. Repeat for `/courses/{course_id}` with `web-security` and `nope`, then inspect **Schemas → Course**.
