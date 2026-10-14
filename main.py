@@ -1,8 +1,8 @@
 """Standalone Course Catalog API for Lab 4."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 
 from data import find_course, get_all_courses
 from models import Course
@@ -16,8 +16,16 @@ def read_root() -> dict[str, str]:
     return {"message": "Course Catalog API is running"}
 
 
+def pagination(
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> dict[str, int]:
+    return {"offset": (page - 1) * page_size, "limit": page_size}
+
+
 @app.get("/courses", response_model=list[Course])
 def list_courses(
+    p: Annotated[dict[str, int], Depends(pagination)],
     is_elective: bool | None = None,
     sort: Literal["popular", "title"] = "popular",
 ) -> list[Course]:
@@ -28,7 +36,7 @@ def list_courses(
         courses = sorted(courses, key=lambda course: course.title)
     else:
         courses = sorted(courses, key=lambda course: course.likes, reverse=True)
-    return courses
+    return courses[p["offset"] : p["offset"] + p["limit"]]
 
 
 @app.get("/courses/{course_id}", response_model=Course)
