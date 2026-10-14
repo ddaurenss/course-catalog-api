@@ -1,5 +1,7 @@
 """Standalone Course Catalog API for Lab 4."""
 
+from typing import Literal
+
 from fastapi import FastAPI, HTTPException
 
 from data import find_course, get_all_courses
@@ -15,8 +17,18 @@ def read_root() -> dict[str, str]:
 
 
 @app.get("/courses", response_model=list[Course])
-def list_courses() -> list[Course]:
-    return get_all_courses()
+def list_courses(
+    is_elective: bool | None = None,
+    sort: Literal["popular", "title"] = "popular",
+) -> list[Course]:
+    courses = get_all_courses()
+    if is_elective is not None:
+        courses = [course for course in courses if course.is_elective == is_elective]
+    if sort == "title":
+        courses = sorted(courses, key=lambda course: course.title)
+    else:
+        courses = sorted(courses, key=lambda course: course.likes, reverse=True)
+    return courses
 
 
 @app.get("/courses/{course_id}", response_model=Course)
