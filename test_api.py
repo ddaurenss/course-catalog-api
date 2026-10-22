@@ -6,13 +6,17 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from data import get_all_courses
-from main import app
+from main import app, ENROLLMENTS
 from models import Course
 
 
 class CatalogTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        ENROLLMENTS.clear()
+        for course in get_all_courses():
+            if course.id == "web-security":
+                course.likes = 21
 
     def test_health(self):
         response = self.client.get("/")
@@ -43,7 +47,7 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(response.json(), {
             "id": "web-security", "title": "Web Security Essentials",
             "description": "JWT/OAuth2, XSS, CSRF, and SQL injection defense.",
-            "credits": 4, "is_elective": False, "likes": 21,
+            "credits": 4, "isElective": False, "likes": 21,
         })
         response = self.client.get("/courses/nope")
         self.assertEqual(response.status_code, 404)
@@ -76,14 +80,41 @@ class CatalogTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 200)
         schema = self.client.get("/openapi.json").json()
-        self.assertEqual(set(schema["paths"]), {"/", "/courses", "/courses/{course_id}"})
-        self.assertTrue(all(set(methods) == {"get"} for methods in schema["paths"].values()))
+        self.assertEqual(set(schema["paths"]), {"/", "/courses", "/courses/{course_id}", "/courses/{course_id}/like", "/enrollments"})
+        self.assertEqual(set(schema["paths"]["/enrollments"]), {"get", "post"})
         fields = schema["components"]["schemas"]["Course"]["properties"]
-        self.assertEqual(set(fields), {"id", "title", "description", "credits", "is_elective", "likes"})
-        self.assertEqual(fields["is_elective"]["default"], False)
+        self.assertEqual(set(fields), {"id", "title", "description", "credits", "isElective", "likes"})
+        self.assertEqual(fields["isElective"]["default"], False)
         self.assertEqual(fields["likes"]["default"], 0)
         params = schema["paths"]["/courses"]["get"]["parameters"]
         self.assertEqual({p["name"] for p in params}, {"is_elective", "sort", "page", "page_size"})
+
+    def test_cors_and_preflight(self):
+        for origin, allowed in [("http://localhost:3000", True), ("http://evil.example", False)]:
+            response = self.client.get("/courses", headers={"Origin": origin})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers.get("access-control-allow-origin"), origin if allowed else None)
+            response = self.client.options("/enrollments", headers={"Origin": origin,
+                "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"})
+            self.assertEqual(response.status_code, 200 if allowed else 400)
+
+    def test_writes_and_validation(self):
+        for likes in (22, 23):
+            response = self.client.post("/courses/web-security/like")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["likes"], likes)
+        self.assertEqual(self.client.get("/courses/web-security").json()["likes"], 23)
+        self.assertEqual(self.client.post("/courses/nope/like").status_code, 404)
+        body = {"courseId": "web-security", "studentName": "Aigerim"}
+        response = self.client.post("/enrollments", json=body)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json(), {**body, "id": 1})
+        self.assertEqual(self.client.get("/enrollments").json(), [response.json()])
+        invalid = self.client.post("/enrollments", json={**body, "studentName": "A"})
+        self.assertEqual(invalid.status_code, 422)
+        self.assertEqual(invalid.json()["detail"][0]["loc"], ["body", "studentName"])
+        self.assertEqual(self.client.post("/enrollments", json={**body, "courseId": "nope"}).status_code, 404)
+        self.assertEqual(len(self.client.get("/courses?isElective=true").json()), 6)
 
 
 if __name__ == "__main__":

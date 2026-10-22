@@ -89,3 +89,21 @@ git push -u origin main
 ```
 
 Submit that repository link through your instructor's requested channel.
+
+## Lab 5 — What changed
+
+- `main.py`: CORSMiddleware разрешает ровно `http://localhost:3000` (без `/`), все методы и заголовки. Это позволяет браузеру читать ответы API с другого origin. Чужой origin не получает разрешения; CORS не является авторизацией.
+- `models.py`: Course и EnrollmentIn наследуют CamelModel; `alias_generator=to_camel`, `validate_by_name=True`, `validate_by_alias=True`. В Python — `is_elective`, в JSON — `isElective`. Query-параметр остаётся `is_elective`.
+- `POST /courses/web-security/like` → 200, объект курса с `likes: 22` при первом нажатии после перезапуска.
+- `POST /enrollments`, JSON `{"courseId":"web-security","studentName":"Aigerim"}` → 201, `{"courseId":"web-security","studentName":"Aigerim","id":1}`.
+- `GET /enrollments` → 200, массив созданных записей.
+- Неизвестный курс → 404; имя короче двух символов → 422. Данные хранятся в памяти и сбрасываются при перезапуске.
+
+Запуск: `source .venv/bin/activate`, затем `fastapi dev main.py`. Swagger: http://localhost:8000/docs (6 операций).
+Проверки: `.venv/bin/python -m unittest -v` (9 тестов).
+
+Проверка preflight:
+```sh
+curl -i -X OPTIONS http://localhost:8000/enrollments -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type'
+```
+Ожидается 200, `access-control-allow-origin: http://localhost:3000`, POST в разрешённых методах.
