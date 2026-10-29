@@ -98,3 +98,35 @@ erDiagram
 HTTP здесь — проектируемое поведение будущего API, а не ответы изменённого backend. Ошибки определяются по SQLSTATE и полям диагностики, а не по тексту сообщения.
 
 Pydantic даёт клиенту понятный ранний ответ, но к БД обращаются также SQL-консоль, импорт, другие сервисы и скрипты. Поэтому ограничения БД защищают целостность независимо от пути записи; валидация в API не заменяет CHECK/UNIQUE/FK.
+
+## Index: EXPLAIN before and after
+
+Запуск: `psql -h localhost -U catalog_app -d idx_demo -v ON_ERROR_STOP=1 -f experiments/index.sql > experiments/index.log 2>&1`.
+Сценарий защищён проверкой имени БД, пересоздаёт схему только в idx_demo, временно удаляет итоговый индекс для честного сравнения, загружает 500 / 20000 / 50000 строк и делает по три замера до и после.
+
+Запрос: `SELECT * FROM enrollments WHERE student_id = 777;`.
+
+| Показатель | До индекса (ожидается) | После индекса (ожидается) |
+|---|---|---|
+| Access method | Seq Scan | Bitmap Heap/Index Scan или Index Scan |
+| cost | фактический вывод в index.log | фактический вывод в index.log |
+| Rows Removed by Filter | 49997 | обычно отсутствует |
+| Execution Time | минимум трёх запусков в index.log | минимум трёх запусков в index.log |
+
+Ожидаемые формы планов, НЕ фактические замеры:
+
+```text
+Seq Scan on enrollments
+  Filter: (student_id = 777)
+```
+
+```text
+Bitmap Heap Scan on enrollments
+  Recheck Cond: (student_id = 777)
+  -> Bitmap Index Scan on enrollments_student_id_idx
+       Index Cond: (student_id = 777)
+```
+
+1. UNIQUE(email) автоматически создаёт индекс; UNIQUE(course_id, student_id) помогает искать по первому столбцу course_id. Сам FOREIGN KEY индекс не создаёт. Поиск только по student_id в данном эксперименте требует отдельного индекса (конкретное решение всегда принимает планировщик).
+2. На шести строках Seq Scan может стоить дешевле обращения к индексу; на 50000 строках при выборе трёх строк индекс сокращает чтение. Проверка малой таблицы: `ANALYZE courses; EXPLAIN SELECT * FROM courses WHERE id = 'api-design';` в course_catalog.
+3. Индекс ускоряет получение записей одного студента и поиск дочерних записей при каскадном удалении студента. Цена — дополнительное место и обслуживание при изменении данных; размер выводит сценарий.
