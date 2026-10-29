@@ -130,3 +130,34 @@ Bitmap Heap Scan on enrollments
 1. UNIQUE(email) автоматически создаёт индекс; UNIQUE(course_id, student_id) помогает искать по первому столбцу course_id. Сам FOREIGN KEY индекс не создаёт. Поиск только по student_id в данном эксперименте требует отдельного индекса (конкретное решение всегда принимает планировщик).
 2. На шести строках Seq Scan может стоить дешевле обращения к индексу; на 50000 строках при выборе трёх строк индекс сокращает чтение. Проверка малой таблицы: `ANALYZE courses; EXPLAIN SELECT * FROM courses WHERE id = 'api-design';` в course_catalog.
 3. Индекс ускоряет получение записей одного студента и поиск дочерних записей при каскадном удалении студента. Цена — дополнительное место и обслуживание при изменении данных; размер выводит сценарий.
+
+## Transaction
+
+Ошибка второй вставки: `psql -h localhost -U catalog_app -d course_catalog -f experiments/transaction.sql`.
+Ожидается: первый INSERT успешен, второй даёт 23503, SELECT внутри аварийной транзакции — 25P02. После ROLLBACK count Madina равен 0: отменён и первый INSERT. Без общей транзакции студент сохранился бы без записи на курс.
+
+Успешный сценарий: открыть два psql, подключённых к course_catalog как catalog_app. В окне A:
+
+```sql
+BEGIN;
+INSERT INTO students (name,email) VALUES ('Madina Ospanova','madina@example.com');
+INSERT INTO enrollments (course_id,student_id)
+SELECT 'web-security',id FROM students WHERE email = 'madina@example.com';
+```
+
+В окне B до COMMIT:
+
+```sql
+SELECT count(*) FROM students WHERE email = 'madina@example.com';
+```
+
+Ожидается 0. Выполнить `COMMIT;` в A, повторить SELECT в B: ожидается 1. Две вставки становятся видимы вместе. Проверить:
+
+```sql
+SELECT s.name,c.title FROM enrollments e
+JOIN students s ON s.id=e.student_id JOIN courses c ON c.id=e.course_id
+WHERE s.email='madina@example.com';
+SHOW default_transaction_isolation;
+```
+
+Ожидается Madina Ospanova / Web Security Essentials, изоляция `read committed`, всего 4 студента и 7 записей. Пока A не завершена, B не видит её изменений. Держать транзакции короткими: они удерживают блокировки. Перед повторным запуском schema.sql завершить транзакции в обоих окнах.
