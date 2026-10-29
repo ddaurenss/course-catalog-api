@@ -1,0 +1,9 @@
+PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+course_catalog|catalog_app
+6|3|6
+ANALYZE
+Seq Scan on courses  (cost=0.00..1.07 rows=1 width=100)
+  Filter: (id = 'api-design'::text)
+
+All runtime assertions passed. Final state: 6/3/6; api-design likes=11.

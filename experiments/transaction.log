@@ -1,0 +1,18 @@
+BEGIN
+INSERT 0 1
+ROLLBACK
+ after_rollback 
+----------------
+              0
+(1 row)
+
+psql:experiments/transaction.sql:7: ERROR:  23503: insert or update on table "enrollments" violates foreign key constraint "enrollments_course_id_fkey"
+DETAIL:  Key (course_id)=(no-such-course) is not present in table "courses".
+SCHEMA NAME:  public
+TABLE NAME:  enrollments
+CONSTRAINT NAME:  enrollments_course_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2772
+psql:experiments/transaction.sql:8: ERROR:  25P02: current transaction is aborted, commands ignored until end of transaction block
+LOCATION:  exec_simple_query, postgres.c:1136
+
+Two real connections: B before COMMIT=0; B after COMMIT=1; students|enrollments=4|7

@@ -78,7 +78,7 @@ erDiagram
 
 ## Constraint violation log
 
-Команды: `psql -h localhost -U catalog_app -d course_catalog -f experiments/constraints.sql`. Файл намеренно продолжает работу после ошибок и включает `\set VERBOSITY verbose`. Ниже — ожидаемые коды по заданию; фактический статус запуска см. в конце README.
+Команды: `psql -h localhost -U catalog_app -d course_catalog -f experiments/constraints.sql`. Файл намеренно продолжает работу после ошибок и включает `\set VERBOSITY verbose`. Ниже — фактически подтверждённые коды PostgreSQL 18.6; полная диагностика сохранена в [experiments/constraints.log](experiments/constraints.log). Для PostgreSQL 16–17 отдельно указано отличие RESTRICT.
 
 | # | Нарушение | SQLSTATE | Constraint / column | API response |
 |---|---|---|---|---|
@@ -106,24 +106,24 @@ Pydantic даёт клиенту понятный ранний ответ, но 
 
 Запрос: `SELECT * FROM enrollments WHERE student_id = 777;`.
 
-| Показатель | До индекса (ожидается) | После индекса (ожидается) |
+| Показатель | До индекса (замер) | После индекса (замер) |
 |---|---|---|
-| Access method | Seq Scan | Bitmap Heap/Index Scan или Index Scan |
-| cost | фактический вывод в index.log | фактический вывод в index.log |
-| Rows Removed by Filter | 49997 | обычно отсутствует |
-| Execution Time | минимум трёх запусков в index.log | минимум трёх запусков в index.log |
+| Access method | Seq Scan | Bitmap Heap Scan + Bitmap Index Scan |
+| cost | 0.00..1042.00 | 4.31..15.59 |
+| Rows Removed by Filter | 49997 | отсутствует: выборка через индекс |
+| Execution Time | 1.376 ms (1.651, 1.389, 1.376) | 0.008 ms (0.040, 0.008, 0.013) |
 
-Ожидаемые формы планов, НЕ фактические замеры:
+Фактические планы PostgreSQL 18.6 (полные EXPLAIN ANALYZE в [experiments/index.log](experiments/index.log)):
 
 ```text
-Seq Scan on enrollments
+Seq Scan on enrollments  (cost=0.00..1042.00 rows=3 width=34)
   Filter: (student_id = 777)
 ```
 
 ```text
-Bitmap Heap Scan on enrollments
+Bitmap Heap Scan on enrollments  (cost=4.31..15.59 rows=3 width=34)
   Recheck Cond: (student_id = 777)
-  -> Bitmap Index Scan on enrollments_student_id_idx
+  -> Bitmap Index Scan on enrollments_student_id_idx  (cost=0.00..4.31 rows=3 width=0)
        Index Cond: (student_id = 777)
 ```
 
@@ -161,3 +161,52 @@ SHOW default_transaction_isolation;
 ```
 
 Ожидается Madina Ospanova / Web Security Essentials, изоляция `read committed`, всего 4 студента и 7 записей. Пока A не завершена, B не видит её изменений. Держать транзакции короткими: они удерживают блокировки. Перед повторным запуском schema.sql завершить транзакции в обоих окнах.
+
+Фактически проверено двумя независимыми соединениями: B до COMMIT = 0, после COMMIT = 1, итоговые счётчики 4 / 7. Журнал: [experiments/transaction.log](experiments/transaction.log). Затем основные данные пересозданы до 6 / 3 / 6.
+
+## Self-review against the checklist
+
+| Критерий | Результат проверки структуры |
+|---|---|
+| Keys | Да: PK во всех трёх таблицах; обе связи защищены FK |
+| Types | Да: slug text, identity bigint, счётчики integer, boolean, timestamptz |
+| Required values | Да: все прикладные поля NOT NULL; PK/identity также не допускают NULL |
+| Constraints | Да: credits > 0, likes >= 0, имя >= 2 символов, уникальные email и пара; правило имени согласовано с Pydantic |
+| Deletion | Да: courses RESTRICT, students CASCADE; сценарии подготовлены |
+| Normalization | Да: сведения о курсе/студенте не повторяются в enrollments; значения атомарны |
+| Indexes and names | Да: PK/UNIQUE создают индексы; course_id покрыт первым столбцом пары, student_id отдельным индексом; snake_case |
+
+## Bonus
+
+В queries.sql добавлены запросы 7 и 8 (бонус №4). Ожидаемые результаты: api-design, databases-postgresql, web-security; Daniyar — 3 курса, Aigerim — 2. Остальные бонусы необязательны и не заявлены выполненными.
+
+## Сдача
+
+Это отдельный локальный git-репозиторий, изменения фиксируются по этапам (минимум 6 коммитов). Для сдачи создать пустой репозиторий course-catalog-db на GitHub и выполнить:
+
+```bash
+git remote add origin https://github.com/YOUR_ACCOUNT/course-catalog-db.git
+git push -u origin main
+```
+
+Ссылку передать преподавателю указанным им способом. Публикация и отправка преподавателю в этой сессии не выполнялись.
+
+## Фактическая проверка — 29 октября 2026
+
+Все обязательные SQL-сценарии выполнены на PostgreSQL 18.6 в отдельном контейнере `lab6-postgres`, подключение к базе — как catalog_app. Созданы course_catalog, idx_demo и norm_demo, владелец каждой — catalog_app.
+
+- [queries.log](experiments/queries.log): все обязательные запросы и бонус 4 совпали с результатами задания.
+- [constraints.log](experiments/constraints.log): 10 ожидаемых ошибок, CASCADE 6 → 3 → 6 и дополнительный код 428C9.
+- [index.log](experiments/index.log): реальные планы, 3 замера до и после, таблица 3336 kB и индекс 896 kB. Минимальное время уменьшилось примерно в 172 раза; это результат данного опыта, не гарантия для любого сервера.
+- [transaction.log](experiments/transaction.log): 23503, затем 25P02, откат студента и видимость COMMIT из второго соединения.
+- [verification.log](experiments/verification.log): версия, роль, итоговые 6 / 3 / 6, Seq Scan на таблице из шести курсов. Финальное значение likes для api-design — 11.
+
+Контейнер оставлен запущенным, порт хоста **55436** (не стандартный 5432). Подключение на этом компьютере:
+
+```bash
+"/Applications/pgAdmin 4.app/Contents/SharedSupport/psql" -h localhost -p 55436 -U catalog_app -d course_catalog
+```
+
+Учебный пароль catalog_app: `change-me`. Для повторения команд README на этом контейнере добавлять `-p 55436`. Остановить после работы: `docker stop lab6-postgres`; снова запустить: `docker start lab6-postgres`.
+
+Подробное объяснение каждого этапа: [РАЗБОР.md](РАЗБОР.md). По содержимому и выполнению обязательные критерии проверены; GitHub push и передача ссылки преподавателю ещё не выполнены.
