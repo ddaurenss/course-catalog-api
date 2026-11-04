@@ -1,0 +1,9 @@
+email already taken 409 {"detail":"Student with this email already exists"}
+already enrolled 409 {"detail":"Student is already enrolled in this course"}
+unknown course 404 {"detail":"Course not found"}
+unknown student 404 {"detail":"Student not found"}
+name too short 422 {"detail":[{"type":"string_too_short","loc":["body","name"],"msg":"String should have at least 2 characters","input":"N","ctx":{"min_length":2}}]}
+5 of 5 as expected
+Concurrent likes: 11 -> 21
+Persistence after server restart: PASS
+Initial seed restored: 6 courses / 3 students / 6 enrollments
