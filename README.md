@@ -1,109 +1,167 @@
-# Course Catalog API — Lab 4
+# course-catalog-api — Lab 7
 
-Standalone FastAPI backend demonstrating Pydantic models, course lookup, filtering, sorting, and pagination through dependency injection.
+FastAPI + SQLAlchemy 2.1 + PostgreSQL + Alembic. Решение лабораторной №7.
+Подробное объяснение для защиты: [РАЗБОР.md](РАЗБОР.md).
 
-## Run locally
+## How to run
 
-Requires Python 3.10+ and Git. On this Mac, Python 3.13 was installed with `brew install python@3.13`.
+Нужны Python 3.11+ и PostgreSQL 16+. Один раз от суперпользователя PostgreSQL:
 
-From the `course-catalog-api` folder on macOS/Linux:
+```sql
+CREATE ROLE catalog_app LOGIN PASSWORD 'change-me';
+CREATE DATABASE course_catalog OWNER catalog_app;
+```
+
+Из папки `course-catalog-api`:
 
 ```bash
-python3.13 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
+cp .env.example .env
+# При необходимости исправить порт и пароль в .env.
+alembic upgrade head
+psql -h localhost -p 5432 -U catalog_app -d course_catalog -v ON_ERROR_STOP=1 -f seed.sql
+python check_db.py
+python check_models.py
+alembic check
 fastapi dev main.py
 ```
 
-Use `python3` instead of `python3.13` if it is already version 3.10 or newer. Activate the environment in each new terminal.
-
-Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-fastapi dev main.py
-```
-
-Open http://127.0.0.1:8000/docs. There are exactly three application routes: `GET /`, `GET /courses`, and `GET /courses/{course_id}`. Alternative documentation: `/redoc`; machine-readable schema: `/openapi.json`.
-
-Data stays in memory and comes from the six courses in the Lab 4 handout. The existing Next.js book catalog is separate; connecting the frontend belongs to Lab 5. JSON uses `is_elective`, not the frontend's `isElective`.
-
-## What was verified
-
-The automated checks in `test_api.py` cover these expected responses:
-
-| Request | Expected response |
-| --- | --- |
-| `/` | 200, `{"message":"Course Catalog API is running"}` |
-| `/courses` | 200, ai-integration, modern-frontend, web-security, backend-fastapi, databases-postgresql, api-design |
-| `/courses/web-security` | 200, Web Security Essentials with credits=4, is_elective=false, likes=21 |
-| `/courses/nope` | 404, `{"detail":"Course not found"}` |
-| `/courses?is_elective=true` | ai-integration, api-design |
-| `/courses?is_elective=false` | modern-frontend, web-security, backend-fastapi, databases-postgresql |
-| `/courses?sort=title` | ai-integration, api-design, backend-fastapi, modern-frontend, databases-postgresql, web-security |
-| `/courses?page=1&page_size=2` | ai-integration, modern-frontend |
-| `/courses?page=2&page_size=2` | web-security, backend-fastapi |
-| `/courses?page=3&page_size=2` | databases-postgresql, api-design |
-| `/courses?page=4&page_size=2` | `[]` |
-| `/courses?is_elective=false&sort=title&page=2&page_size=2` | databases-postgresql, web-security; filtering and sorting precede pagination |
-| `/courses?sort=banana` | 422: unsupported sort (bonus) |
-| `/courses?page=0` | 422: page must be at least 1 (bonus) |
-| `/courses?page_size=1000` | 422: page_size must be between 1 and 100 (bonus) |
-| `/docs`, `/redoc`, `/openapi.json` | 200; OpenAPI exposes exactly three GET operations and the Course schema |
-
-Run the acceptance checks after activating `.venv`:
+Swagger: http://localhost:8000/docs. В другом терминале с активным окружением:
 
 ```bash
+python try_errors.py
 python -m unittest -v
 ```
 
-Verified locally on Python 3.13.16 with FastAPI 0.143.0: all 7 test methods passed. FastAPI is pinned to the verified version in `requirements.txt`.
-
-The actual server was also started with `fastapi dev main.py`. HTTP checks confirmed 200 responses from `/`, `/docs`, `/redoc`, and `/openapi.json`; page 2 returned `web-security` and `backend-fastapi`; `/courses/nope` returned the expected 404 JSON. Swagger's interactive controls still need to be exercised manually in your browser before submission.
-
-The tests also verify Pydantic defaults (`is_elective=False`, `likes=0`), conversion of `credits="5"` to 5, rejection of `credits="five"`, rejection of invalid query types, and preservation of the original data order.
-
-For the manual Swagger verification required by the lab, open `/docs`, expand `GET /courses`, choose **Try it out**, enter the parameters from the table, and select **Execute**. Inspect the request URL, response body, and status code. Repeat for `/courses/{course_id}` with `web-security` and `nope`, then inspect **Schemas → Course**.
-
-## Files and implementation
-
-- `models.py`: the Pydantic `Course` model.
-- `data.py`: six courses, `get_all_courses()` returning a list copy, and `find_course()`.
-- `main.py`: routes and `pagination()`; offset is calculated only in the dependency.
-- `test_api.py`: repeatable acceptance checks using FastAPI TestClient and unittest.
-- `requirements.txt`: FastAPI with its standard server and CLI dependencies.
-
-No database, frontend integration, or extra `/stats` route is required. The two implemented bonuses are the sort dropdown using `Literal` and pagination constraints using `Query`.
-
-## GitHub submission
-
-This folder is its own Git repository. `.venv/` and Python cache files are ignored. Review the meaningful implementation commits with `git log --oneline`.
-
-Create an empty GitHub repository named `course-catalog-api`, then run from this folder (replace `YOUR_USERNAME`):
+На этом Mac всё уже установлено: `.env` указывает на **localhost:5437/course_catalog**
+в существующем контейнере `lab7-postgres`. База создана отдельно, данные Lab 6
+на порту 55436 не изменялись. Для запуска достаточно:
 
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/course-catalog-api.git
-git push -u origin main
+cd course-catalog-api
+source .venv/bin/activate
+fastapi dev main.py
 ```
 
-Submit that repository link through your instructor's requested channel.
+Если контейнер остановлен: `docker start lab7-postgres`. Для psql на этом Mac:
+`"/Applications/pgAdmin 4.app/Contents/SharedSupport/psql"`; локально добавлять `-p 5437`.
+`seed.sql` сбрасывает учебные данные до 6 курсов, 3 студентов, 6 записей,
+сбрасывает identity и лайки; применять только при намеренном сбросе.
+`.env` игнорируется git. `change-me` — учебный пароль, реальные пароли в git не добавляются.
+`SQL_ECHO=true` в `.env` включает SQL и значения параметров для локальной отладки.
+Переменная окружения `DATABASE_URL` имеет приоритет над `.env`.
 
-## Lab 5 — What changed
+## What changed in the API
 
-- `main.py`: CORSMiddleware разрешает ровно `http://localhost:3000` (без `/`), все методы и заголовки. Это позволяет браузеру читать ответы API с другого origin. Чужой origin не получает разрешения; CORS не является авторизацией.
-- `models.py`: Course и EnrollmentIn наследуют CamelModel; `alias_generator=to_camel`, `validate_by_name=True`, `validate_by_alias=True`. В Python — `is_elective`, в JSON — `isElective`. Query-параметр остаётся `is_elective`.
-- `POST /courses/web-security/like` → 200, объект курса с `likes: 22` при первом нажатии после перезапуска.
-- `POST /enrollments`, JSON `{"courseId":"web-security","studentName":"Aigerim"}` → 201, `{"courseId":"web-security","studentName":"Aigerim","id":1}`.
-- `GET /enrollments` → 200, массив созданных записей.
-- Неизвестный курс → 404; имя короче двух символов → 422. Данные хранятся в памяти и сбрасываются при перезапуске.
+- Курсы, студенты и записи хранятся в PostgreSQL; перезапуск сервера сохраняет данные.
+- `POST /students`: `{"name":"Nurlan Abenov","email":"nurlan@example.com"}` → 201 и `id`.
+- `POST /enrollments`: `{"courseId":"web-security","studentId":4}` → 201.
+  Использовать реальный `id` из ответа создания студента.
+- `GET /enrollments` использует JOIN, возвращает также `courseTitle`, `studentName`, `enrolledAt`.
+- `GET /stats/courses` использует LEFT JOIN и `count(enrollments.id)`;
+  курсы без записей имеют 0. На seed: ai-integration — 3, modern-frontend — 2,
+  backend-fastapi — 1, остальные — 0.
+- `GET /courses` сохраняет фильтр `is_elective`, сортировку `popular|title`,
+  `page` и `page_size`; добавлен `level=beginner|intermediate|advanced`.
+  В ответе есть обязательное поле `level`; в seed два beginner и четыре intermediate.
+- `GET /courses/{id}` возвращает курс либо 404; `POST /courses/{id}/like` увеличивает лайки атомарно.
+- Повторный email и повторная запись → 409; отсутствующие курс или студент → 404;
+  невалидное имя/email/параметры → 422. Неизвестный IntegrityError не маскируется.
+- Python использует snake_case, JSON — camelCase. Фронтенд по заданию не меняется:
+  его прежний `studentName` в запросе записи теперь приводит к 422. Проверять через `/docs`.
 
-Запуск: `source .venv/bin/activate`, затем `fastapi dev main.py`. Swagger: http://localhost:8000/docs (6 операций).
-Проверки: `.venv/bin/python -m unittest -v` (9 тестов).
+## Migrations
 
-Проверка preflight:
-```sh
-curl -i -X OPTIONS http://localhost:8000/enrollments -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type'
+| Команда | Назначение |
+|---|---|
+| `alembic upgrade head` | Применить недостающие миграции |
+| `alembic downgrade -1` | Откатить последнюю миграцию |
+| `alembic current` | Версия базы |
+| `alembic heads` | Конечные вершины истории |
+| `alembic history` | История миграций |
+| `alembic revision --autogenerate -m "text"` | Черновик по отличиям моделей от базы |
+| `alembic check` | Найти различия схемы и моделей |
+| `alembic upgrade 0001:0002 --sql` | Просмотреть SQL без выполнения |
+| `alembic stamp 0001` | Только отметить существующую схему Lab 6 как 0001 |
+| `alembic stamp head` | Только отметить текущую конечную версию, без выполнения DDL |
+
+История: `<base> → 0001 → 0002 (head)`. `0001` создаёт три таблицы и индекс.
+`0002` добавляет `level`. В существующей базе Lab 6 нужно сначала подтвердить
+совпадение исходной схемы с 0001, выполнить `stamp 0001`, затем `upgrade head`.
+Нельзя делать `stamp head` на схеме Lab 6: head уже требует `level`.
+На пустой базе используется только `upgrade head`.
+Alembic запускается из корня API. Применять autogenerate без чтения файла нельзя.
+
+## Experiment log
+
+Все восемь опытов фактически выполнены 5 ноября 2026 в отдельной базе
+`lab7_verify_20261105` на PostgreSQL 18.6. Полный вывод:
+[experiments/lab7-verification.log](experiments/lab7-verification.log).
+
+| № | Что сломали | Что увидели | Причина | Исправление |
+|---|---|---|---|---|
+| 1 | uq-шаблон `_key` заменён на `_uniq` | check_models показывает students_email_uniq только в моделях, students_email_key только в БД; также расходится составной UNIQUE | Имена в metadata и PostgreSQL различаются | Восстановлен `_key` |
+| 2 | Убрали min_length у StudentIn, отправили имя N | HTTP 500; CheckViolation, students_name_check | Pydantic пропустил имя, CHECK в БД сохранил данные, неизвестное нарушение проброшено | Возвращён Field(min_length=2), снова 422 |
+| 3 | students_email_key заменили на students_email_uniq в словаре | Повторный email → HTTP 500 | Реальное имя не найдено в словаре | Вернули students_email_key; снова 409 |
+| 4 | Убрали NOT NULL у title, затем заменили text на varchar(100) | alembic check: modify_nullable, затем modify_type; ненулевой exit code | База разошлась с моделью | Восстановили NOT NULL и text |
+| 5 | Добавили level сразу nullable=False в заполненную таблицу | NotNullViolation: column level contains null values; версия осталась 0001 | Для старых строк нет значения нового поля, DDL откатился | nullable=True → UPDATE → SET NOT NULL |
+| 6 | Закомментировали import models в env.py | autogenerate предложил drop_table всех трёх таблиц и drop_index | Base.metadata пустая | Опасный черновик не применяли; удалили его и вернули импорт |
+| 7 | Добавили phone в Student без миграции | alembic check: add_column students.phone | Модель опережает схему | Удалили экспериментальное поле |
+| 8 | Создали 0003 и 0004 от 0002 | Две heads; upgrade head: Multiple head revisions; после merge одна 0005 | Разветвлённая история | Проверили merge, удалили три экспериментальных файла без применения; осталась 0002 |
+
+Дополнительно проверены DuplicateTable при upgrade существующей схемы и `stamp 0001`,
+цикл upgrade → downgrade → upgrade на заполненной таблице, отсутствие `level` после
+отката, полный downgrade base → upgrade head → seed → check → API-тесты.
+Экспериментальный runner требует специальное имя базы и сбрасывает её public schema.
+Он читает исходные schema/seed из соседнего `course-catalog-db`; для обычного запуска
+API этот соседний репозиторий не нужен. Повтор опытов:
+
+```bash
+DATABASE_URL=postgresql+psycopg://catalog_app:change-me@localhost:55436/lab7_verify_20261105 \
+  python experiments/run_experiments.py
 ```
-Ожидается 200, `access-control-allow-origin: http://localhost:3000`, POST в разрешённых методах.
+
+## Decisions
+
+1. SQLSTATE 23505 одинаков для разных UNIQUE, а имя ограничения указывает конкретное
+   правило и нужный ответ. Текст ошибки зависит от версии/языка. Проверка SELECT перед
+   INSERT имеет гонку: другой запрос может вставить строку между проверкой и записью.
+   Поэтому ловим IntegrityError при commit, делаем rollback и выбираем ответ по имени.
+   Неизвестные нарушения пробрасываются как ошибки сервера.
+2. `UPDATE ... SET likes = likes + 1 RETURNING ...` вычисляет значение внутри БД.
+   PostgreSQL блокирует изменяемую строку и последовательно применяет обновления.
+   Чтение и `course.likes += 1` в двух сессиях может дважды записать одно и то же число
+   и потерять один лайк.
+3. Новую NOT NULL-колонку нельзя сразу добавить в заполненную таблицу без значения
+   для старых строк. В 0002 сначала разрешаем NULL, заполняем уровни по is_elective,
+   затем запрещаем NULL. Все три шага выполняются в одной транзакции. level не имеет
+   постоянного server_default. Downgrade удаляет колонку и её значения; повторный
+   upgrade вычисляет их заново и не восстанавливает произвольные пользовательские уровни.
+
+## Migration 0002 self-check
+
+| Проверка | Результат |
+|---|---|
+| Цель и шаги | Да: только level, три последовательных шага |
+| Данные | Да: шесть старых курсов сохранены, элективам beginner, остальным intermediate |
+| Переименования/удаления | Да: upgrade ничего не удаляет и не переименовывает |
+| Откат | Да: downgrade удаляет level; его пользовательские значения теряются, перед production нужен план восстановления |
+| Проверка | Да: --sql прочитан; upgrade/downgrade/upgrade и чистое развёртывание прошли, alembic check без различий |
+| История | Да: одна head 0002; миграция level сохраняется вместе с моделями и схемами API |
+| Приложение | Да: level в модели, ответе, фильтре и seed; прежний studentName-контракт заменён studentId |
+
+## Фактическая проверка и сдача
+
+Python 3.13.16, SQLAlchemy 2.1.8, Alembic 1.20.1, psycopg 3.3.8.
+Пять интеграционных тестов проходят на настоящем PostgreSQL. Они откатывают изменения
+через внешнюю транзакцию и savepoint, включая commit внутри маршрутов.
+Имена ограничений и индексов совпадают; начальные счётчики 6/3/6.
+Локальное развёртывание: [experiments/local-start.log](experiments/local-start.log).
+HTTP-проверка: [experiments/http-verification.log](experiments/http-verification.log):
+5 из 5 ошибочных запросов, 10 конкурентных лайков (11 → 21), сохранение значения
+после перезапуска сервера. Затем исходный seed восстановлен.
+Обязательные восемь экспериментов выполнены; дополнительные бонусы не заявлены.
+Репозиторий: https://github.com/ddaurenss/course-catalog-api.
+Публикация на GitHub и передача ссылки преподавателю в этой сессии не выполняются автоматически.
