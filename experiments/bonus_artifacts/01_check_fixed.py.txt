@@ -1,0 +1,12 @@
+from alembic import op
+import sqlalchemy as sa
+revision = "0003"
+down_revision = "0002"
+branch_labels = None
+depends_on = None
+
+def upgrade():
+    op.create_check_constraint(op.f("courses_level_check"), "courses",
+                               "level IN ('beginner', 'intermediate', 'advanced')")
+def downgrade():
+    op.drop_constraint(op.f("courses_level_check"), "courses", type_="check")
