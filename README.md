@@ -43,30 +43,9 @@ SELECT (SELECT count(*) FROM courses) AS courses,
 
 ## Schema
 
-```mermaid
-erDiagram
-    COURSES ||--o{ ENROLLMENTS : "course enrollments"
-    STUDENTS ||--o{ ENROLLMENTS : "student enrollments"
-    COURSES {
-        text id PK "course slug"
-        text title
-        text description
-        integer credits
-        boolean is_elective
-        integer likes
-    }
-    STUDENTS {
-        bigint id PK "generated always as identity"
-        text name
-        text email UK
-    }
-    ENROLLMENTS {
-        bigint id PK "generated always as identity"
-        text course_id FK
-        bigint student_id FK
-        timestamptz enrolled_at
-    }
-```
+![ER-диаграмма базы курсов](er-diagram.svg)
+
+[Открыть диаграмму отдельно](er-diagram.svg) · [Исходник Mermaid](er-diagram.mmd)
 
 Курсы и студенты хранятся независимо. enrollments связывает их отношением многие-ко-многим через две связи один-ко-многим. Составная уникальность `(course_id, student_id)` запрещает повторную запись на один курс.
 
@@ -210,3 +189,33 @@ git push -u origin main
 Учебный пароль catalog_app: `change-me`. Для повторения команд README на этом контейнере добавлять `-p 55436`. Остановить после работы: `docker stop lab6-postgres`; снова запустить: `docker start lab6-postgres`.
 
 Подробное объяснение каждого этапа: [РАЗБОР.md](РАЗБОР.md). По содержимому и выполнению обязательные критерии проверены; GitHub push и передача ссылки преподавателю ещё не выполнены.
+
+## Удобный запуск и проверка — 4 ноября 2026
+
+Добавлены `run.sh` и `verify.sql`. Проверка выполнена на PostgreSQL 18.6
+в отдельной базе `lab6_verify_20261104`; основная `course_catalog` не пересоздавалась.
+Журнал: [verification-2026-11-04.log](experiments/verification-2026-11-04.log).
+Проверены schema → seed → queries → verify → constraints → transaction → verify.
+Ошибки внутри constraints/transaction ожидаемы по заданию.
+
+На этом Mac из папки `course-catalog-db`:
+
+```bash
+export PSQL_BIN="/Applications/pgAdmin 4.app/Contents/SharedSupport/psql"
+export PGHOST=localhost
+export PGPORT=55436
+export PGUSER=catalog_app
+export PGDATABASE=course_catalog
+bash run.sh verify
+bash run.sh queries
+```
+
+При запросе пароля ввести учебный `change-me`. Для нового развёртывания сначала
+создать роль и базы по разделу How to run. Если контейнер остановлен:
+`docker start lab6-postgres`. При обычной локальной установке PostgreSQL
+используйте её порт (обычно 5432).
+
+Для намеренного сброса учебных данных: `bash run.sh reset`.
+Команда удаляет три таблицы через schema.sql, загружает seed.sql и запускает verify.sql.
+`verify` ожидает исходные данные 6/3/6 и 11 лайков api-design;
+проверочные изменения строк откатываются, но identity-счётчики могут продвинуться.

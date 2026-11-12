@@ -1,0 +1,22 @@
+erDiagram
+    COURSES ||--o{ ENROLLMENTS : "course enrollments"
+    STUDENTS ||--o{ ENROLLMENTS : "student enrollments"
+    COURSES {
+        text id PK "course slug"
+        text title
+        text description
+        integer credits
+        boolean is_elective
+        integer likes
+    }
+    STUDENTS {
+        bigint id PK "generated always as identity"
+        text name
+        text email UK
+    }
+    ENROLLMENTS {
+        bigint id PK "generated always as identity"
+        text course_id FK
+        bigint student_id FK
+        timestamptz enrolled_at
+    }
