@@ -1,4 +1,4 @@
--- Lab 6. Recreates the teaching schema; existing rows are removed.
+
 DROP TABLE IF EXISTS enrollments, students, courses;
 
 CREATE TABLE courses (
