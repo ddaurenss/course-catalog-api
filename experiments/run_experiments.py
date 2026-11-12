@@ -4,7 +4,8 @@ from pathlib import Path
 import psycopg
 from sqlalchemy.engine import make_url
 u=make_url(os.environ['DATABASE_URL'])
-assert u.database=='lab7_verify_20261105'
+if u.database not in {'lab7_verify_20261105', 'lab7_verify_20261112'}:
+ raise SystemExit('Use a dedicated lab7_verify_20261105 or lab7_verify_20261112 database')
 c=psycopg.connect(host=u.host,port=u.port,user=u.username,password=u.password,dbname=u.database,autocommit=True)
 def sql(s):
  print('SQL:',s,flush=True)
@@ -24,8 +25,8 @@ def patch(path,old,new,action):
  finally:p.write_text(s)
 # Recreate the disposable public schema so this runner is repeatable.
 sql('DROP SCHEMA public CASCADE; CREATE SCHEMA public')
-sql(Path('../course-catalog-db/schema.sql').read_text())
-sql(Path('../course-catalog-db/seed.sql').read_text())
+sql(Path('experiments/fixtures/lab6_schema.sql').read_text())
+sql(Path('experiments/fixtures/lab6_seed.sql').read_text())
 a('upgrade','0001',ok=False);a('stamp','0001')
 print('EXPERIMENT 5: NOT NULL without backfill',flush=True)
 patch('alembic/versions/0002_add_course_level.py','nullable=True','nullable=False',lambda:a('upgrade','head',ok=False))

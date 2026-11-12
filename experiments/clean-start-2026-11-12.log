@@ -1,0 +1,55 @@
+$ docker exec lab7-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE lab7_verify_20261112 WITH (FORCE);
+DROP DATABASE
+$ docker exec lab7-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c CREATE DATABASE lab7_verify_20261112 OWNER catalog_app;
+CREATE DATABASE
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, create catalog tables
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, add course level with backfill
+$ docker exec -i lab7-postgres psql -U catalog_app -d lab7_verify_20261112 -v ON_ERROR_STOP=1
+BEGIN
+TRUNCATE TABLE
+INSERT 0 6
+INSERT 0 3
+INSERT 0 6
+COMMIT
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python check_db.py
+connected to lab7_verify_20261112 as catalog_app, PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2)
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python check_models.py
+courses: 6 rows
+students: 3 rows
+enrollments: 6 rows
+names only in models: none
+names only in database: none
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0002 (head)
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic heads
+0002 (head)
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m unittest -v
+/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_docs_cors_and_contract (test_api.CatalogTests.test_docs_cors_and_contract) ... ok
+test_error_contract_and_session_recovery (test_api.CatalogTests.test_error_contract_and_session_recovery) ... ok
+test_filters_pagination_and_validation (test_api.CatalogTests.test_filters_pagination_and_validation) ... ok
+test_like_and_missing (test_api.CatalogTests.test_like_and_missing) ... ok
+test_student_enrollment_join_and_stats (test_api.CatalogTests.test_student_enrollment_join_and_stats) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.121s
+
+OK
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python experiments/verify_http.py
+CLEAN DATABASE RECREATION AND ALL REQUIRED CHECKS PASSED

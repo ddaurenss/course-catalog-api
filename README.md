@@ -115,8 +115,8 @@ Alembic запускается из корня API. Применять autogener
 цикл upgrade → downgrade → upgrade на заполненной таблице, отсутствие `level` после
 отката, полный downgrade base → upgrade head → seed → check → API-тесты.
 Экспериментальный runner требует специальное имя базы и сбрасывает её public schema.
-Он читает исходные schema/seed из соседнего `course-catalog-db`; для обычного запуска
-API этот соседний репозиторий не нужен. Повтор опытов:
+Исходные schema/seed Lab 6 включены в `experiments/fixtures/`: для повторения
+экспериментов достаточно этого репозитория. Повтор опытов:
 
 ```bash
 DATABASE_URL=postgresql+psycopg://catalog_app:change-me@localhost:55436/lab7_verify_20261105 \
@@ -164,4 +164,54 @@ HTTP-проверка: [experiments/http-verification.log](experiments/http-veri
 после перезапуска сервера. Затем исходный seed восстановлен.
 Обязательные восемь экспериментов выполнены; дополнительные бонусы не заявлены.
 Репозиторий: https://github.com/ddaurenss/course-catalog-api.
-Публикация на GitHub и передача ссылки преподавателю в этой сессии не выполняются автоматически.
+Для сдачи передать преподавателю ссылку на этот репозиторий через LMS или учебный чат.
+
+
+## Проверка по критериям оценивания — 12 ноября 2026
+
+Работа ограничена обязательной частью. Бонусные задания не выполняются.
+
+| Критерий из задания | Баллы | Реализация и подтверждение |
+|---|---:|---|
+| Подключение и модели | 2 | config.py, .env.example, db.py, naming_convention, три ORM-модели; check_db и check_models |
+| Маршруты на SQLAlchemy | 2 | Фильтры is_elective/level, сортировка, страницы, UPDATE RETURNING для лайка; студенты, JOIN записей, LEFT JOIN и count(Enrollment.id) для статистики |
+| Ошибки базы как HTTP-ответы | 1 | Сопоставление по constraint_name, 409/404; try_errors.py проверяет 5 из 5, Pydantic возвращает 422 |
+| Alembic | 2 | env.py, 0001, stamp существующей схемы, 0002 в три шага; одна head, check; upgrade/downgrade/upgrade |
+| Эксперименты и самопроверка | 2 | Восемь строк Experiment log с наблюдениями, причинами, исправлениями; семь строк Migration 0002 self-check |
+| Репозиторий и README | 1 | Инструкция с нуля, изменения API, три Decisions; восемь содержательных коммитов Lab 7 плюс проверка готовности к сдаче |
+| Всего по шкале задания | **10** | Итоговую оценку выставляет преподаватель |
+
+Свежие результаты: [criteria-2026-11-12.log](experiments/criteria-2026-11-12.log).
+В логе ошибки ожидаемы только внутри восьми контролируемых экспериментов;
+итоговая строка подтверждает успешное завершение и восстановление рабочего состояния.
+
+Проверка создания базы с нуля и настоящего HTTP-сервера:
+[clean-start-2026-11-12.log](experiments/clean-start-2026-11-12.log),
+[http-2026-11-12.log](experiments/http-2026-11-12.log).
+Проверка рабочей базы: [working-db-2026-11-12.log](experiments/working-db-2026-11-12.log).
+Разрушающие проверки проводятся в отдельной `lab7_verify_20261112`; рабочая `course_catalog`
+и проекты Lab 6/фронтенд не пересоздаются.
+
+Повторить эксперименты на этом Mac (от суперпользователя один раз создать
+`CREATE DATABASE lab7_verify_20261112 OWNER catalog_app;`):
+
+```bash
+source .venv/bin/activate
+export DATABASE_URL=postgresql+psycopg://catalog_app:change-me@localhost:5437/lab7_verify_20261112
+python experiments/run_experiments.py
+python experiments/verify_http.py
+unset DATABASE_URL
+```
+
+Для проверки рабочей базы перед защитой:
+
+```bash
+python check_db.py
+python check_models.py
+alembic current
+alembic heads
+alembic check
+fastapi dev main.py
+# Во втором терминале:
+python try_errors.py
+```

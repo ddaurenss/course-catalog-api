@@ -24,10 +24,21 @@ class CatalogTests(unittest.TestCase):
         self.transaction.rollback()
         self.connection.close()
     def test_filters_pagination_and_validation(self):
-        for query, count in [("",6),("?level=beginner",2),("?is_elective=false",4),("?page_size=2&page=2",2)]:
-            r=self.client.get('/courses'+query)
-            self.assertEqual(r.status_code,200)
-            self.assertEqual(len(r.json()),count)
+        cases = {
+            "": ["ai-integration", "modern-frontend", "web-security", "backend-fastapi", "databases-postgresql", "api-design"],
+            "?level=beginner": ["ai-integration", "api-design"],
+            "?level=intermediate&is_elective=false&page_size=2&page=2": ["backend-fastapi", "databases-postgresql"],
+            "?level=advanced": [],
+            "?is_elective=true": ["ai-integration", "api-design"],
+            "?is_elective=false": ["modern-frontend", "web-security", "backend-fastapi", "databases-postgresql"],
+            "?page_size=2&page=2": ["web-security", "backend-fastapi"],
+            "?page_size=2&page=4": [],
+        }
+        for query, expected in cases.items():
+            with self.subTest(query=query):
+                r = self.client.get('/courses' + query)
+                self.assertEqual(r.status_code, 200)
+                self.assertEqual([row['id'] for row in r.json()], expected)
         for query in ('?page=0','?sort=nope','?level=expert','?page_size=101'):
             self.assertEqual(self.client.get('/courses'+query).status_code,422)
         rows=self.client.get('/courses?sort=title').json()

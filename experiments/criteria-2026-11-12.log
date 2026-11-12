@@ -1,0 +1,748 @@
+SQL: DROP SCHEMA public CASCADE; CREATE SCHEMA public
+SQL: 
+DROP TABLE IF EXISTS enrollments, students, courses;
+
+CREATE TABLE courses (
+    id text PRIMARY KEY,
+    title text NOT NULL,
+    description text NOT NULL,
+    credits integer NOT NULL CHECK (credits > 0),
+    is_elective boolean NOT NULL DEFAULT false,
+    likes integer NOT NULL DEFAULT 0 CHECK (likes >= 0)
+);
+
+CREATE TABLE students (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name text NOT NULL CHECK (char_length(name) >= 2),
+    email text NOT NULL UNIQUE
+);
+
+CREATE TABLE enrollments (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    course_id text NOT NULL REFERENCES courses(id) ON DELETE RESTRICT,
+    student_id bigint NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    enrolled_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (course_id, student_id)
+);
+
+-- FK constraints do not automatically index referencing columns.
+CREATE INDEX enrollments_student_id_idx ON enrollments(student_id);
+
+SQL: 
+BEGIN;
+
+TRUNCATE TABLE enrollments, students, courses RESTART IDENTITY;
+
+INSERT INTO courses
+    (id, title, description, credits, is_elective, likes)
+VALUES
+    ('modern-frontend',
+     'Modern Frontend: React & Next.js',
+     'React 19, Server Components, and the App Router.',
+     5, false, 24),
+
+    ('backend-fastapi',
+     'Backend Foundations: FastAPI',
+     'Async REST APIs in Python with FastAPI and Pydantic.',
+     5, false, 19),
+
+    ('databases-postgresql',
+     'Relational Databases: PostgreSQL',
+     'Schemas, SQLAlchemy, and migrations with Alembic.',
+     5, false, 15),
+
+    ('api-design',
+     'API Design: REST vs GraphQL',
+     'Comparing REST and GraphQL in one hands-on project.',
+     4, true, 11),
+
+    ('web-security',
+     'Web Security Essentials',
+     'JWT/OAuth2, XSS, CSRF, and SQL injection defense.',
+     4, false, 21),
+
+    ('ai-integration',
+     'AI/LLM Integration',
+     'LLM features in an app via the OpenAI API.',
+     5, true, 32);
+
+INSERT INTO students (name, email)
+VALUES
+    ('Aigerim Sadykova', 'aigerim@example.com'),
+    ('Daniyar Bekov', 'daniyar@example.com'),
+    ('Asel Omarova', 'asel@example.com');
+
+INSERT INTO enrollments (course_id, student_id)
+VALUES
+    ('modern-frontend', 1),
+    ('ai-integration', 1),
+    ('modern-frontend', 2),
+    ('backend-fastapi', 2),
+    ('ai-integration', 2),
+    ('ai-integration', 3);
+
+COMMIT;
+
+SELECT
+    (SELECT count(*) FROM courses) AS courses,
+    (SELECT count(*) FROM students) AS students,
+    (SELECT count(*) FROM enrollments) AS enrollments;
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade 0001
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, create catalog tables
+Traceback (most recent call last):
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1977, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.DuplicateTable: relation "courses" already exists
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/__main__.py", line 4, in <module>
+    main(prog="alembic")
+    ~~~~^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/config.py", line 1039, in main
+    CommandLine(prog=prog).main(argv=argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/config.py", line 1029, in main
+    self.run_cmd(cfg, options)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/config.py", line 963, in run_cmd
+    fn(
+    ~~^
+        config,
+        ^^^^^^^
+        *[getattr(options, k, None) for k in positional],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        **{k: getattr(options, k, None) for k in kwarg},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/command.py", line 487, in upgrade
+    script.run_env()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/script/base.py", line 550, in run_env
+    util.load_python_file(self.dir, "env.py")
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/util/pyfiles.py", line 114, in load_python_file
+    module = load_module_py(module_id, path)
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/util/pyfiles.py", line 132, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1027, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/env.py", line 29, in <module>
+    run_migrations_online()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/env.py", line 23, in run_migrations_online
+    context.run_migrations()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "<string>", line 8, in run_migrations
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/runtime/environment.py", line 970, in run_migrations
+    self.get_context().run_migrations(**kw)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/runtime/migration.py", line 616, in run_migrations
+    step.migration_fn(**kw)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/versions/0001_create_catalog_tables.py", line 24, in upgrade
+    op.create_table('courses',
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^
+    sa.Column('id', sa.Text(), nullable=False),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    sa.PrimaryKeyConstraint('id', name=op.f('courses_pkey'))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "<string>", line 8, in create_table
+  File "<string>", line 3, in create_table
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/operations/ops.py", line 1323, in create_table
+    return operations.invoke(op)
+           ~~~~~~~~~~~~~~~~~^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/operations/base.py", line 448, in invoke
+    return fn(self, operation)
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/operations/toimpl.py", line 139, in create_table
+    operations.impl.create_table(table, **kw)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/ddl/impl.py", line 434, in create_table
+    self._exec(schema.CreateTable(table, **kw))
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/ddl/impl.py", line 252, in _exec
+    return conn.execute(construct, params)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1494, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/sql/ddl.py", line 203, in _execute_on_connection
+    return connection._execute_ddl(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1603, in _execute_ddl
+    ret = self._execute_context(
+        dialect,
+    ...<4 lines>...
+        compiled,
+    )
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1868, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1996, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1977, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.ProgrammingError: (psycopg.errors.DuplicateTable) relation "courses" already exists
+[SQL: 
+CREATE TABLE courses (
+	id TEXT NOT NULL, 
+	title TEXT NOT NULL, 
+	description TEXT NOT NULL, 
+	credits INTEGER NOT NULL, 
+	is_elective BOOLEAN DEFAULT false NOT NULL, 
+	likes INTEGER DEFAULT 0 NOT NULL, 
+	CONSTRAINT courses_pkey PRIMARY KEY (id), 
+	CONSTRAINT courses_credits_check CHECK (credits > 0), 
+	CONSTRAINT courses_likes_check CHECK (likes >= 0)
+)
+
+]
+(Background on this error at: https://sqlalche.me/e/21/f405)
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic stamp 0001
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running stamp_revision  -> 0001
+
+EXPERIMENT 5: NOT NULL without backfill
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, add course level with backfill
+Traceback (most recent call last):
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1977, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.NotNullViolation: column "level" of relation "courses" contains null values
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/__main__.py", line 4, in <module>
+    main(prog="alembic")
+    ~~~~^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/config.py", line 1039, in main
+    CommandLine(prog=prog).main(argv=argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/config.py", line 1029, in main
+    self.run_cmd(cfg, options)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/config.py", line 963, in run_cmd
+    fn(
+    ~~^
+        config,
+        ^^^^^^^
+        *[getattr(options, k, None) for k in positional],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        **{k: getattr(options, k, None) for k in kwarg},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/command.py", line 487, in upgrade
+    script.run_env()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/script/base.py", line 550, in run_env
+    util.load_python_file(self.dir, "env.py")
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/util/pyfiles.py", line 114, in load_python_file
+    module = load_module_py(module_id, path)
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/util/pyfiles.py", line 132, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1027, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/env.py", line 29, in <module>
+    run_migrations_online()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/env.py", line 23, in run_migrations_online
+    context.run_migrations()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "<string>", line 8, in run_migrations
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/runtime/environment.py", line 970, in run_migrations
+    self.get_context().run_migrations(**kw)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/runtime/migration.py", line 616, in run_migrations
+    step.migration_fn(**kw)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/versions/0002_add_course_level.py", line 10, in upgrade
+    op.add_column("courses", sa.Column("level", sa.Text(), nullable=False))
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 8, in add_column
+  File "<string>", line 3, in add_column
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/operations/ops.py", line 2236, in add_column
+    return operations.invoke(op)
+           ~~~~~~~~~~~~~~~~~^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/operations/base.py", line 448, in invoke
+    return fn(self, operation)
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/operations/toimpl.py", line 181, in add_column
+    operations.impl.add_column(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        table_name,
+        ^^^^^^^^^^^
+    ...<5 lines>...
+        **kw,
+        ^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/ddl/impl.py", line 384, in add_column
+    self._exec(
+    ~~~~~~~~~~^
+        base.AddColumn(
+        ^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        )
+        ^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/alembic/ddl/impl.py", line 252, in _exec
+    return conn.execute(construct, params)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1494, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/sql/ddl.py", line 203, in _execute_on_connection
+    return connection._execute_ddl(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1603, in _execute_ddl
+    ret = self._execute_context(
+        dialect,
+    ...<4 lines>...
+        compiled,
+    )
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1868, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1996, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1977, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.NotNullViolation) column "level" of relation "courses" contains null values
+[SQL: ALTER TABLE courses ADD COLUMN level TEXT NOT NULL]
+(Background on this error at: https://sqlalche.me/e/21/gkpj)
+
+SQL: SELECT version_num FROM alembic_version
+[('0001',)]
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, add course level with backfill
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+
+EXPERIMENT 1: incorrect uq convention
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python check_models.py
+courses: 6 rows
+students: 3 rows
+enrollments: 6 rows
+names only in models: ['enrollments_course_id_student_id_uniq', 'students_email_uniq']
+names only in database: ['enrollments_course_id_student_id_key', 'students_email_key']
+Traceback (most recent call last):
+  File "/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/check_models.py", line 14, in <module>
+    assert names == expected
+           ^^^^^^^^^^^^^^^^^
+AssertionError
+
+EXPERIMENT 2: no minimum name validation
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -c from fastapi.testclient import TestClient
+from main import app
+r=TestClient(app,raise_server_exceptions=False).post('/students',json={'name':'N','email':'n@example.com'})
+print(r.status_code,r.text)
+assert r.status_code==500
+from sqlalchemy import text
+from db import engine
+from sqlalchemy.exc import IntegrityError
+try:
+ with engine.begin() as c:c.execute(text("INSERT INTO students(name,email) VALUES ('N','n@example.com')"))
+except IntegrityError as e:print(type(e.orig).__name__,e.orig.diag.constraint_name)
+
+/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+500 Internal Server Error
+CheckViolation students_name_check
+
+EXPERIMENT 3: wrong constraint mapping
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -c from fastapi.testclient import TestClient
+from main import app
+r=TestClient(app,raise_server_exceptions=False).post('/students',json={'name':'Aigerim Two','email':'aigerim@example.com'})
+print(r.status_code,r.text)
+assert r.status_code==500
+
+/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+500 Internal Server Error
+
+EXPERIMENT 4: nullability and type drift
+SQL: ALTER TABLE courses ALTER COLUMN title DROP NOT NULL
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+INFO  [alembic.autogenerate.compare.constraints] Detected NOT NULL on column 'courses.title'
+ERROR [alembic.util.messaging] New upgrade operations detected: [[('modify_nullable', None, 'courses', 'title', {'existing_type': TEXT(), 'existing_server_default': False, 'existing_comment': None}, True, False)]]
+FAILED: New upgrade operations detected: [[('modify_nullable', None, 'courses', 'title', {'existing_type': TEXT(), 'existing_server_default': False, 'existing_comment': None}, True, False)]]
+
+SQL: ALTER TABLE courses ALTER COLUMN title SET NOT NULL
+SQL: ALTER TABLE courses ALTER COLUMN title TYPE varchar(100)
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+INFO  [alembic.autogenerate.compare.types] Detected type change from VARCHAR(length=100) to Text() on 'courses.title'
+ERROR [alembic.util.messaging] New upgrade operations detected: [[('modify_type', None, 'courses', 'title', {'existing_nullable': False, 'existing_server_default': False, 'existing_comment': None}, VARCHAR(length=100), Text())]]
+FAILED: New upgrade operations detected: [[('modify_type', None, 'courses', 'title', {'existing_nullable': False, 'existing_server_default': False, 'existing_comment': None}, VARCHAR(length=100), Text())]]
+
+SQL: ALTER TABLE courses ALTER COLUMN title TYPE text
+UPGRADE / DOWNGRADE / UPGRADE
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic downgrade -1
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0002 -> 0001, add course level with backfill
+
+SQL: SELECT level FROM courses
+UndefinedColumn column "level" does not exist
+LINE 1: SELECT level FROM courses
+               ^
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, add course level with backfill
+
+SQL: SELECT id,level FROM courses ORDER BY id
+[('ai-integration', 'beginner'), ('api-design', 'beginner'), ('backend-fastapi', 'intermediate'), ('databases-postgresql', 'intermediate'), ('modern-frontend', 'intermediate'), ('web-security', 'intermediate')]
+EXPERIMENT 6: missing import models
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic revision --autogenerate -m oops --rev-id 0003
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+INFO  [alembic.autogenerate.compare.tables] Detected removed table 'students'
+INFO  [alembic.autogenerate.compare.tables] Detected removed table 'courses'
+INFO  [alembic.autogenerate.compare.constraints] Detected removed index 'enrollments_student_id_idx' on 'enrollments'
+INFO  [alembic.autogenerate.compare.tables] Detected removed table 'enrollments'
+Generating /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/versions/0003_oops.py ...  done
+
+"""oops
+
+Revision ID: 0003
+Revises: 0002
+Create Date: 2026-11-12 15:29:30.951796
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision: str = '0003'
+down_revision: Union[str, Sequence[str], None] = '0002'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('students')
+    op.drop_table('courses')
+    op.drop_index(op.f('enrollments_student_id_idx'), table_name='enrollments')
+    op.drop_table('enrollments')
+    # ### end Alembic commands ###
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table('enrollments',
+    sa.Column('id', sa.BIGINT(), sa.Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), autoincrement=True, nullable=False),
+    sa.Column('course_id', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.Column('student_id', sa.BIGINT(), autoincrement=False, nullable=False),
+    sa.Column('enrolled_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=False),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], name=op.f('enrollments_course_id_fkey'), ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], name=op.f('enrollments_student_id_fkey'), ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id', name=op.f('enrollments_pkey')),
+    sa.UniqueConstraint('course_id', 'student_id', name=op.f('enrollments_course_id_student_id_key'), postgresql_include=[], postgresql_nulls_not_distinct=False)
+    )
+    op.create_index(op.f('enrollments_student_id_idx'), 'enrollments', ['student_id'], unique=False)
+    op.create_table('courses',
+    sa.Column('id', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.Column('title', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.Column('description', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.Column('credits', sa.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('is_elective', sa.BOOLEAN(), server_default=sa.text('false'), autoincrement=False, nullable=False),
+    sa.Column('likes', sa.INTEGER(), server_default=sa.text('0'), autoincrement=False, nullable=False),
+    sa.Column('level', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.CheckConstraint('credits > 0', name=op.f('courses_credits_check')),
+    sa.CheckConstraint('likes >= 0', name=op.f('courses_likes_check')),
+    sa.PrimaryKeyConstraint('id', name=op.f('courses_pkey'))
+    )
+    op.create_table('students',
+    sa.Column('id', sa.BIGINT(), sa.Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), autoincrement=True, nullable=False),
+    sa.Column('name', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.Column('email', sa.TEXT(), autoincrement=False, nullable=False),
+    sa.CheckConstraint('char_length(name) >= 2', name=op.f('students_name_check')),
+    sa.PrimaryKeyConstraint('id', name=op.f('students_pkey')),
+    sa.UniqueConstraint('email', name=op.f('students_email_key'), postgresql_include=[], postgresql_nulls_not_distinct=False)
+    )
+    # ### end Alembic commands ###
+
+EXPERIMENT 7: no migration for phone
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+INFO  [alembic.autogenerate.compare.tables] Detected added column 'students.phone'
+ERROR [alembic.util.messaging] New upgrade operations detected: [('add_column', None, 'students', Column('phone', Text(), table=<students>))]
+FAILED: New upgrade operations detected: [('add_column', None, 'students', Column('phone', Text(), table=<students>))]
+
+EXPERIMENT 8: two heads and merge
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic revision -m add student phone --rev-id 0003
+Generating /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/versions/0003_add_student_phone.py ...  done
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic revision -m add course language --rev-id 0004 --head 0002 --splice
+Generating /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/versions/0004_add_course_language.py ...  done
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic heads
+0003 (head)
+0004 (head)
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+ERROR [alembic.util.messaging] Multiple head revisions are present for given argument 'head'; please specify a specific target revision, '<branchname>@head' to narrow to a specific head, or 'heads' for all heads
+FAILED: Multiple head revisions are present for given argument 'head'; please specify a specific target revision, '<branchname>@head' to narrow to a specific head, or 'heads' for all heads
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic merge heads -m merge phone and language --rev-id 0005
+Generating /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/alembic/versions/0005_merge_phone_and_language.py ...  done
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic heads
+0005 (head)
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic history
+0003, 0004 -> 0005 (head) (mergepoint), merge phone and language
+0002 -> 0003, add student phone
+0002 -> 0004, add course language
+0001 -> 0002 (branchpoint), add course level with backfill
+<base> -> 0001, create catalog tables
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic heads
+0002 (head)
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+
+CLEAN START on disposable database
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic downgrade base
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0002 -> 0001, add course level with backfill
+INFO  [alembic.runtime.migration] Running downgrade 0001 -> , create catalog tables
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, create catalog tables
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, add course level with backfill
+
+SQL: -- Resets teaching data; run after alembic upgrade head.
+BEGIN;
+TRUNCATE enrollments, students, courses RESTART IDENTITY CASCADE;
+INSERT INTO courses (id, title, description, credits, is_elective, likes, level) VALUES
+('modern-frontend', 'Modern Frontend: React & Next.js', 'React 19, Server Components, and the App Router.', 5, false, 24, 'intermediate'),
+('backend-fastapi', 'Backend Foundations: FastAPI', 'Async REST APIs in Python with FastAPI and Pydantic.', 5, false, 19, 'intermediate'),
+('databases-postgresql', 'Relational Databases: PostgreSQL', 'Schemas, SQLAlchemy, and migrations with Alembic.', 5, false, 15, 'intermediate'),
+('api-design', 'API Design: REST vs GraphQL', 'Comparing REST and GraphQL in one hands-on project.', 4, true, 11, 'beginner'),
+('web-security', 'Web Security Essentials', 'JWT/OAuth2, XSS, CSRF, and SQL injection defense.', 4, false, 21, 'intermediate'),
+('ai-integration', 'AI/LLM Integration', 'LLM features in an app via the OpenAI API.', 5, true, 32, 'beginner');
+
+INSERT INTO students (name, email) VALUES
+('Aigerim Sadykova', 'aigerim@example.com'),
+('Daniyar Bekov', 'daniyar@example.com'),
+('Asel Omarova', 'asel@example.com');
+
+INSERT INTO enrollments (course_id, student_id) VALUES
+('modern-frontend', 1), ('ai-integration', 1),
+('modern-frontend', 2), ('backend-fastapi', 2), ('ai-integration', 2),
+('ai-integration', 3);
+COMMIT;
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python check_db.py
+connected to lab7_verify_20261112 as catalog_app, PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2)
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python check_models.py
+courses: 6 rows
+students: 3 rows
+enrollments: 6 rows
+names only in models: none
+names only in database: none
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m unittest -v
+/Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_docs_cors_and_contract (test_api.CatalogTests.test_docs_cors_and_contract) ... ok
+test_error_contract_and_session_recovery (test_api.CatalogTests.test_error_contract_and_session_recovery) ... ok
+test_filters_pagination_and_validation (test_api.CatalogTests.test_filters_pagination_and_validation) ... ok
+test_like_and_missing (test_api.CatalogTests.test_like_and_missing) ... ok
+test_student_enrollment_join_and_stats (test_api.CatalogTests.test_student_enrollment_join_and_stats) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.140s
+
+OK
+
+$ /Users/dauren/Library/Mobile Documents/com~apple~CloudDocs/IITU/2027-2028 IITU/WEB Enlik,Umithan/web4/course-catalog-api/.venv/bin/python -m alembic upgrade 0001:0002 --sql
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Generating static SQL
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+BEGIN;
+
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, add course level with backfill
+-- Running upgrade 0001 -> 0002
+
+ALTER TABLE courses ADD COLUMN level TEXT;
+
+UPDATE courses SET level = CASE WHEN is_elective THEN 'beginner' ELSE 'intermediate' END;
+
+ALTER TABLE courses ALTER COLUMN level SET NOT NULL;
+
+UPDATE alembic_version SET version_num='0002' WHERE alembic_version.version_num = '0001';
+
+COMMIT;
+
+
+ALL EIGHT EXPERIMENTS AND CLEAN START PASSED
