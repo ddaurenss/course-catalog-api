@@ -1,6 +1,7 @@
 """GraphQL schema served alongside the REST API."""
 
 from datetime import datetime
+from collections import defaultdict
 from typing import Annotated
 
 import strawberry
@@ -8,6 +9,7 @@ from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from strawberry.fastapi import BaseContext, GraphQLRouter
+from strawberry.dataloader import DataLoader
 from strawberry.types import Info
 
 from db import get_db
@@ -15,10 +17,30 @@ from models import Course, Enrollment, Student
 import services
 
 
+def batch_loader(db: Session, column, many: bool = False) -> DataLoader:
+    """Load rows in one query and return one result for every key, in key order."""
+    model = column.class_
+
+    async def load(keys: list) -> list:
+        rows = db.scalars(select(model).where(column.in_(keys))).all()
+        groups = defaultdict(list)
+        for row in rows:
+            groups[getattr(row, column.key)].append(row)
+        if many:
+            return [groups[key] for key in keys]
+        return [groups[key][0] if groups[key] else None for key in keys]
+
+    return DataLoader(load_fn=load)
+
+
 class Context(BaseContext):
     def __init__(self, db: Session):
         super().__init__()
         self.db = db
+        self.course_loader = batch_loader(db, Course.id)
+        self.student_loader = batch_loader(db, Student.id)
+        self.enrollments_of_course = batch_loader(db, Enrollment.course_id, many=True)
+        self.enrollments_of_student = batch_loader(db, Enrollment.student_id, many=True)
 
 
 def get_context(db: Annotated[Session, Depends(get_db)]) -> Context:
@@ -34,7 +56,10 @@ class CourseType:
     is_elective: bool
     likes: int
     level: str
-    enrollments: list["EnrollmentType"]
+
+    @strawberry.field
+    async def enrollments(self, info: Info) -> list["EnrollmentType"]:
+        return await info.context.enrollments_of_course.load(str(self.id))
 
 
 @strawberry.type(name="Student")
@@ -42,15 +67,26 @@ class StudentType:
     id: strawberry.ID
     name: str
     email: str
-    enrollments: list["EnrollmentType"]
+
+    @strawberry.field
+    async def enrollments(self, info: Info) -> list["EnrollmentType"]:
+        return await info.context.enrollments_of_student.load(int(self.id))
 
 
 @strawberry.type(name="Enrollment")
 class EnrollmentType:
     id: strawberry.ID
     enrolled_at: datetime
-    course: CourseType
-    student: StudentType
+    course_id: strawberry.Private[str]
+    student_id: strawberry.Private[int]
+
+    @strawberry.field
+    async def course(self, info: Info) -> CourseType:
+        return await info.context.course_loader.load(self.course_id)
+
+    @strawberry.field
+    async def student(self, info: Info) -> StudentType:
+        return await info.context.student_loader.load(self.student_id)
 
 
 @strawberry.type
