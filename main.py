@@ -9,10 +9,12 @@ from models import Course, Enrollment, Student
 from schemas import CourseOut, CourseStats, EnrollmentDetail, EnrollmentIn, EnrollmentOut, StudentIn, StudentOut
 import problem
 import services
+import counter
 from graphql_api import graphql_app
 
 app = FastAPI(title="Course Catalog API")
 problem.install(app)
+counter.install(app)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"],
                    allow_methods=["*"], allow_headers=["*"])
 SessionDep = Annotated[Session, Depends(get_db)]
