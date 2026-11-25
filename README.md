@@ -1,6 +1,7 @@
 # course-catalog-api — Labs 7–8
 
-FastAPI + SQLAlchemy 2.1 + PostgreSQL + Alembic. Решение лабораторной №7.
+FastAPI + SQLAlchemy 2.1 + PostgreSQL + Alembic + Strawberry GraphQL.
+Решение лабораторных №7–8.
 Подробное объяснение для защиты: [РАЗБОР.md](РАЗБОР.md).
 
 ## How to run
