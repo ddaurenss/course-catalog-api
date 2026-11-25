@@ -11,14 +11,19 @@ CASES = [
     ("name too short", "/students", {"name": "N", "email": "n@example.com"}, 422, None),
 ]
 
-failed = 0
-for title, path, body, status, slug in CASES:
-    response = httpx.post(BASE + path, json=body)
-    payload = response.json()
-    kind = payload.get("type", "-").rsplit("/", 1)[-1]
-    ok = response.status_code == status and (slug is None or kind == slug)
-    failed += not ok
-    mark = "ok  " if ok else "FAIL"
-    content_type = response.headers.get("content-type", "-")
-    print(f"{mark} {title:<20} {response.status_code}  {content_type:<25} {kind}")
-print(f"{len(CASES) - failed} of {len(CASES)} as expected")
+def main() -> None:
+    failed = 0
+    for title, path, body, status, slug in CASES:
+        response = httpx.post(BASE + path, json=body)
+        payload = response.json()
+        kind = payload.get("type", "-").rsplit("/", 1)[-1]
+        ok = response.status_code == status and (slug is None or kind == slug)
+        failed += not ok
+        mark = "ok  " if ok else "FAIL"
+        content_type = response.headers.get("content-type", "-")
+        print(f"{mark} {title:<20} {response.status_code}  {content_type:<25} {kind}")
+    print(f"{len(CASES) - failed} of {len(CASES)} as expected")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,4 @@
-# course-catalog-api — Lab 7
+# course-catalog-api — Labs 7–8
 
 FastAPI + SQLAlchemy 2.1 + PostgreSQL + Alembic. Решение лабораторной №7.
 Подробное объяснение для защиты: [РАЗБОР.md](РАЗБОР.md).
@@ -239,3 +239,174 @@ python try_errors.py
 чтобы их можно было показать преподавателю без добавления лишних версий Alembic.
 В рабочем проекте остаются две миграции и исходные модели; обязательные тесты
 проходят после бонусов. Дополнительные баллы определяет преподаватель.
+
+# Lab 8 — GraphQL Alongside REST
+
+## How to run
+
+Нужны Python 3.11+, PostgreSQL 16+ и Node.js. Для чистой базы создай роль и базу
+(если роль уже есть, повторно её создавать не нужно):
+
+```sql
+CREATE ROLE catalog_app LOGIN PASSWORD 'change-me';
+CREATE DATABASE course_catalog OWNER catalog_app;
+```
+
+Из `course-catalog-api` создай окружение, установи зависимости, настрой `.env`,
+примени миграции и загрузи учебные данные:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Проверь порт и пароль в DATABASE_URL.
+alembic upgrade head
+psql -h localhost -U catalog_app -d course_catalog -v ON_ERROR_STOP=1 -f seed.sql
+alembic check
+fastapi dev main.py
+```
+
+Если используешь нестандартный порт PostgreSQL, укажи его и в `DATABASE_URL`, и
+в аргументах `psql`. `seed.sql` сбрасывает таблицы и загружает 6 курсов,
+3 студентов и 6 записей. Запускай его, когда нужен именно такой набор данных.
+
+REST-документация: http://localhost:8000/docs. GraphiQL: http://localhost:8000/graphql.
+Проверки выполняются при запущенном API:
+
+```bash
+python try_errors.py
+python try_graphql.py
+python try_n_plus_1.py
+python measure.py
+python try_protection.py
+python -m unittest -v
+```
+
+Для двух frontend-страниц создай в корне `course-catalog/.env.local` (не добавляй
+его в Git):
+
+```dotenv
+API_URL=http://localhost:8000
+```
+
+Затем из `course-catalog` выполни `npm install` и `npm run dev`. Страницы:
+http://localhost:3000/my-courses-rest и http://localhost:3000/my-courses.
+
+## What changed in the API
+
+- Правила и ожидаемые ошибки находятся в `services.py`. REST-преобразование в
+  [Problem Details (RFC 9457)](https://www.rfc-editor.org/rfc/rfc9457) выполняет
+  `problem.py`; ответы имеют `application/problem+json`, а `type` указывает вид
+  ошибки. Pydantic-ошибка 422 остаётся стандартным ответом FastAPI.
+- Strawberry обслуживает GraphQL на `/graphql`; открытие этого адреса в браузере
+  показывает GraphiQL — редактор запросов и документацию схемы.
+- Query читает выбранные клиентом поля. Ошибка текста/выполнения GraphQL обычно
+  приходит в `errors` при HTTP 200. Ожидаемые ошибки бизнес-правил приходят в
+  `data.<mutation>.userErrors`; неожиданные ошибки остаются в `errors`.
+- Мутации `enroll` и `likeCourse` используют общие сервисы с REST. `userErrors`
+  возвращает код и сообщение ожидаемой ошибки.
+- Middleware добавляет `X-SQL-Queries` — количество SQL-команд, выполненных для
+  HTTP-запроса. Заголовок нужен, чтобы измерять N+1, а не оценивать нагрузку только
+  по времени или размеру ответа.
+- DataLoaders, созданные на каждый GraphQL-запрос, пакетно загружают связи и
+  уменьшают число запросов. Защита ограничивает глубину пятью уровнями, число
+  aliases — десятью, `limit` — диапазоном 1–100, проверяет числовой `id` и скрывает
+  внутренние ошибки. `GRAPHQL_INTROSPECTION` управляет introspection; её отключение
+  не заменяет авторизацию.
+- Добавлены REST-маршруты `GET /students/{id}` и
+  `GET /students/{id}/enrollments` для страницы «Мои курсы».
+
+## Example queries
+
+Запрос страницы «Мои курсы» (в GraphiQL Variables передать `{"id":"2"}`):
+
+```graphql
+query MyCourses($id: ID!) {
+  student(id: $id) {
+    name
+    enrollments { id course { title credits level } }
+  }
+}
+```
+
+Запись студента 3 на `web-security`:
+
+```graphql
+mutation Enroll($input: EnrollInput!) {
+  enroll(input: $input) {
+    enrollment { id enrolledAt course { title } }
+    userErrors { code message }
+  }
+}
+```
+
+Variables: `{"input":{"courseId":"web-security","studentId":"3"}}`.
+При успехе `enrollment` заполнен, а `userErrors` пуст. Повтор того же запроса
+возвращает обычный GraphQL-ответ с бизнес-ошибкой:
+
+```json
+{
+  "data": {
+    "enroll": {
+      "enrollment": null,
+      "userErrors": [
+        {
+          "code": "ALREADY_ENROLLED",
+          "message": "Student is already enrolled in this course"
+        }
+      ]
+    }
+  }
+}
+```
+
+## REST vs GraphQL comparison
+
+Измерение `measure.py` для студента 2 на исходном наборе. Размер ответа может
+отличаться из-за времени записи в базу; остальные числа воспроизводятся.
+
+| Критерий | REST | GraphQL | Источник |
+|---|---|---|---|
+| Запросы и раунды на экран | 5 запросов, 2 раунда | 1 запрос, 1 раунд | `measure.py` |
+| Байты ответов | 1130 | 339 | `measure.py` |
+| SQL-запросы на экран | 5 | 3 | `X-SQL-Queries`, `measure.py` |
+| Рост SQL при вложенной выборке | Для страницы 1 запрос на студента, 1 на записи и по запросу на курс | Без DataLoader было 7→27 и 7→24; с DataLoader 3→3 | `try_n_plus_1.py` |
+| Ошибка текста запроса | REST использует URL/параметры и HTTP-статус | Обычно HTTP 200 и `errors`; клиент обязан проверять `errors` | опыты 1 и 8 |
+| Повторная запись | 409, `application/problem+json` | HTTP 200, код `ALREADY_ENROLLED` в `userErrors` | `try_errors.py`, `try_graphql.py` |
+| HTTP-кэш | GET-ответы можно кэшировать стандартными HTTP-механизмами | POST обычно не кэшируется обычным HTTP-кэшем; GraphQL query можно передавать GET, но mutation — только POST | лекция, раздел 14 |
+| Защита дорогих запросов | Ограничения заданы в маршрутах и параметрах | Глубина ≤5, aliases ≤10, `limit` и `id` проверяются, внутренние ошибки скрываются | опыты 6 и 7 |
+
+**Вывод.** REST удобен для отдельных ресурсов и стандартного HTTP-кэширования.
+Для экрана «Мои курсы» GraphQL уменьшил число сетевых запросов с 5 до 1 и число
+байтов с 1130 до 339, потому что клиент запросил только нужные поля. DataLoader
+удержал число запросов базы на уровне 3 при росте набора с 3 до 20 студентов.
+Обе схемы полезны: REST остаётся простым для фиксированных ресурсов, а GraphQL
+подходит для экранов с вложенными данными и разными наборами полей.
+
+## Experiment log
+
+| # | Опыт | Что увидел | Причина | Как исправил |
+|---|---|---|---|---|
+| 1 | Опечатка `titel`; аргумент `is_elective` | HTTP 200, `data: null`, ошибка с подсказкой `title` / `isElective` | GraphQL проверяет имя поля и аргумента по схеме; Python snake_case преобразуется в camelCase | Исправил запрос на `title` и `isElective`; клиент проверяет `errors` |
+| 2 | Убрал `\| None` у `course`, запросил отсутствующий курс | Нарушилось обещание non-null; ошибка поднялась к `data`; с MaskErrors клиент видит `Unexpected error.` | Non-null в схеме — обещание, что поле не вернёт null; ошибка поля может обнулить родителя | Вернул `CourseType \| None` |
+| 3 | Отправил `likeCourse` через GET | HTTP 400, текст `mutations are not allowed when using GET`; лайк не изменился | GET должен быть безопасным и не менять состояние | Мутации отправляются POST |
+| 4 | Lazy loading на 3 и 20 студентах | Было 7/7 SQL-запросов на 3 студентах и 27/24 на 20 | Отдельные lazy-запросы для отношений создают N+1 | Добавил пакетную загрузку DataLoader в опыте 5 |
+| 5 | Batch-функция вернула строки в порядке БД, не ключей | Для 3 ключей студентов пришло 6 записей и WrongNumberOfResultsReturned; при совпавшей длине несколько записей получили чужой курс | DataLoader связывает результаты с ключами по позиции; порядок SQL-строк не гарантирует порядок ключей | Сгруппировал строки по значению ключа и вернул результат в порядке `keys` |
+| 6 | Глубокий запрос, 12 aliases, плохие limit/id, introspection — до и после защиты | Без защиты цикл и 12 мутаций прошли; лайки выросли 11→23 за запрос с 24 SQL-командами; клиенту показывались детали SQL-ошибок. С защитой: depth 5, aliases 10, `limit`/`id` проверены, flood отклонён с 0 SQL | Неограниченные глубина и aliases позволяют запускать дорогие запросы; сырые исключения раскрывают внутренности | Добавил лимит глубины, aliases, проверки аргументов и MaskErrors |
+| 7 | Отключил introspection и опечатался в поле | `__schema` отклонён; обычный запрос работал; подсказка `Did you mean` всё ещё раскрыла похожие поля | Introspection скрывает полную схему, но не является авторизацией и не скрывает ответы проверки имён | Вернул настройку `GRAPHQL_INTROSPECTION=true`; доступ к данным требует авторизации |
+| 8 | Опечатка в frontend query, убрал проверку `errors`, остановил API | `GraphQLRequestError` с причиной; затем `Cannot destructure property 'student' ... null`; при остановленном API — `fetch failed` | `errors` может прийти при HTTP 200; без проверки видна только последующая ошибка; без соединения ответа нет | Восстановил проверку GraphQL `errors` и запустил API |
+
+## Decisions
+
+- Правила находятся в `services.py`, чтобы REST и GraphQL не реализовывали их
+  отдельно. REST переводит код ошибки в HTTP Problem Details, GraphQL — в
+  `userErrors`. При добавлении нового кода нужно добавить соответствующий перевод
+  в REST и обработать его в нужной GraphQL-мутации.
+- DataLoaders создаются в `Context` на каждый запрос, чтобы кэш не переживал запрос
+  и не смешивал результаты разных клиентов. Batch-функция группирует строки по
+  ключу, потому что порядок строк из БД не обязан совпадать с порядком ключей.
+- `check_limit` и `parse_id` дают клиенту понятный ответ на ожидаемые ошибки
+  аргументов. `MaskErrors` скрывает детали непредвиденных ошибок, например SQL и
+  параметры. Лимиты глубины и aliases ограничивают объём работы до выполнения
+  запроса; это два уровня защиты с разными задачами.

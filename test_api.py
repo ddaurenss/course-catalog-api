@@ -44,7 +44,7 @@ class CatalogTests(unittest.TestCase):
         rows=self.client.get('/courses?sort=title').json()
         self.assertEqual([r['title'] for r in rows],sorted(r['title'] for r in rows))
     def test_error_contract_and_session_recovery(self):
-        for title,path,body,status in CASES:
+        for title, path, body, status, _slug in CASES:
             with self.subTest(title=title):
                 self.assertEqual(self.client.post(path,json=body).status_code,status)
         self.assertEqual(self.client.get('/courses').status_code,200)
