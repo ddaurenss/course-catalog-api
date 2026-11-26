@@ -48,6 +48,23 @@ class CatalogTests(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertEqual(self.client.post(path,json=body).status_code,status)
         self.assertEqual(self.client.get('/courses').status_code,200)
+    def test_create_student_rejects_blank_name_in_rest_and_graphql(self):
+        rest = self.client.post('/students', json={'name': '  ', 'email': 'sp@example.com'})
+        self.assertEqual(rest.status_code, 422)
+        self.assertEqual(rest.headers['content-type'], 'application/problem+json')
+        self.assertTrue(rest.json()['type'].endswith('/invalid-name'))
+
+        graphql = self.client.post('/graphql', json={'query': '''
+            mutation {
+              createStudent(input: {name: "  ", email: "sp@example.com"}) {
+                student { id }
+                userErrors { code message }
+              }
+            }
+        '''})
+        result = graphql.json()['data']['createStudent']
+        self.assertIsNone(result['student'])
+        self.assertEqual(result['userErrors'][0]['code'], 'INVALID_NAME')
     def test_student_enrollment_join_and_stats(self):
         r=self.client.post('/students',json={'name':'New Student','email':'new@example.com'})
         self.assertEqual(r.status_code,201)

@@ -422,3 +422,13 @@ Pydantic error location and message into the Problem Details `errors` extension.
 `application/problem+json`, and reports both the short name and invalid email in
 one response. `python try_errors.py` still reports 5 of 5; all five cases now use
 the same Problem Details media type.
+
+### 2. Shared student-name validation
+
+`services.create_student` rejects names with fewer than two characters after
+trimming whitespace. REST maps `INVALID_NAME` to a 422 Problem Details response;
+GraphQL returns the same service error in `userErrors`. The rule lives in the
+service so both API styles stay consistent. When adding a service error, add its
+REST translation to `problem.PROBLEMS` and map it to `userErrors` in each relevant
+GraphQL mutation. `test_create_student_rejects_blank_name_in_rest_and_graphql`
+checks both responses without leaving test records in the database.
