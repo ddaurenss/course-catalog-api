@@ -432,3 +432,17 @@ service so both API styles stay consistent. When adding a service error, add its
 REST translation to `problem.PROBLEMS` and map it to `userErrors` in each relevant
 GraphQL mutation. `test_create_student_rejects_blank_name_in_rest_and_graphql`
 checks both responses without leaving test records in the database.
+
+### 3. Blocking GraphQL resolver
+
+Four simultaneous requests took 0.69 s through the REST `def` route, 2.07 s
+through the synchronous GraphQL resolver, and 0.54 s through the async resolver
+using `run_in_threadpool` (`blocking_app.py` / `blocking_client.py`). FastAPI
+runs a synchronous route in its worker thread pool, while Strawberry's synchronous
+resolver runs on the event-loop thread and blocks it during the database wait.
+The difference is the `async def slow_threadpool` resolver and its
+`await run_in_threadpool(...)` call. This is less concerning for our normal
+millisecond queries, but matters when a resolver waits on slow database or other
+blocking I/O under concurrent traffic. A SQLAlchemy session must not be shared
+between parallel work; use a separate session per worker when applying this
+pattern to real resolvers.
