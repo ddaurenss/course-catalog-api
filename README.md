@@ -411,3 +411,14 @@ Variables: `{"input":{"courseId":"web-security","studentId":"3"}}`.
   аргументов. `MaskErrors` скрывает детали непредвиденных ошибок, например SQL и
   параметры. Лимиты глубины и aliases ограничивают объём работы до выполнения
   запроса; это два уровня защиты с разными задачами.
+
+## Bonus
+
+### 1. Validation errors as Problem Details
+
+`RequestValidationError` is handled by `problem.py`. The handler converts each
+Pydantic error location and message into the Problem Details `errors` extension.
+`python try_post.py N bad` returns status 422 with
+`application/problem+json`, and reports both the short name and invalid email in
+one response. `python try_errors.py` still reports 5 of 5; all five cases now use
+the same Problem Details media type.

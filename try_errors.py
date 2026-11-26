@@ -8,7 +8,7 @@ CASES = [
     ("already enrolled", "/enrollments", {"courseId": "ai-integration", "studentId": 3}, 409, "already-enrolled"),
     ("unknown course", "/enrollments", {"courseId": "nope", "studentId": 3}, 404, "course-not-found"),
     ("unknown student", "/enrollments", {"courseId": "web-security", "studentId": 999}, 404, "student-not-found"),
-    ("name too short", "/students", {"name": "N", "email": "n@example.com"}, 422, None),
+    ("name too short", "/students", {"name": "N", "email": "n@example.com"}, 422, "validation-error"),
 ]
 
 def main() -> None:
